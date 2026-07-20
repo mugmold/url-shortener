@@ -7,6 +7,7 @@ from pymongo import AsyncMongoClient
 from beanie import init_beanie
 from app.core.config import settings
 from app.api.routers import auth, urls, users
+from fastapi.middleware.cors import CORSMiddleware
 
 
 @asynccontextmanager
@@ -25,6 +26,14 @@ async def lifespan(app: FastAPI):
     print("database connection closed!")
 
 app = FastAPI(lifespan=lifespan)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=settings.CORS_ORIGINS,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 app.include_router(auth.router)
 app.include_router(users.router)
