@@ -49,7 +49,7 @@ async def register(user_in: UserCreate):
 
 
 @router.post("/login", response_model=Token)
-async def login(form_data: OAuth2PasswordRequestForm = Depends()):
+async def login(form_data: OAuth2PasswordRequestForm = Depends(), status_code=status.HTTP_200_OK):
     user = await User.find_one(
         {
             "$or": [

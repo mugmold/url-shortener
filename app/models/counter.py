@@ -1,7 +1,6 @@
-from beanie import Document, Indexed
+from beanie import Document, Indexed, UpdateResponse
 from typing import Annotated
 from pydantic import Field
-from pymongo import ReturnDocument
 
 
 class Counter(Document):
@@ -14,18 +13,18 @@ class Counter(Document):
         name = "counters"
 
     @classmethod
-    async def get_next_sequence(cls, counter_name: str) -> int:
-        doc = await cls.get_motor_collection().find_one_and_update(
-            {
-                "name": counter_name
-            },
-            {
-                "$inc": {
-                    "seq": 1
-                }
-            },
-            upsert=True,
-            return_document=ReturnDocument.AFTER
-        )
+    async def init_counter(cls, counter_name: str):
+        exists = await cls.find_one({"name": counter_name})
+        if not exists:
+            try:
+                await cls(name=counter_name, seq=0).insert()
+            except Exception:
+                pass
 
-        return doc["seq"]
+    @classmethod
+    async def get_next_sequence(cls, counter_name: str) -> int:
+        doc = await cls.find_one({"name": counter_name}).update(
+            {"$inc": {"seq": 1}},
+            response_type=UpdateResponse.NEW_DOCUMENT
+        )
+        return doc.seq

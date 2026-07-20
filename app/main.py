@@ -15,6 +15,7 @@ async def lifespan(app: FastAPI):
     db = client[settings.MONGO_DB_NAME]
 
     await init_beanie(database=db, document_models=[User, URL, Counter])
+    await Counter.init_counter("url_counter")
 
     print("database connected!")
     yield
@@ -26,12 +27,5 @@ async def lifespan(app: FastAPI):
 app = FastAPI(lifespan=lifespan)
 
 app.include_router(auth.router)
-app.include_router(urls.router)
 app.include_router(users.router)
-
-
-@app.get('/')
-async def root():
-    return {
-        'message': 'Hello World!'
-    }
+app.include_router(urls.router)
