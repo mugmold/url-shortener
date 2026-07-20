@@ -7,6 +7,10 @@ requires-python = ">=3.11"
 dependencies = [
     "beanie>=2.1.0",
     "fastapi[standard]>=0.139.2",
+    "passlib[bcrypt]>=1.7.4",
+    "pydantic-settings>=2.14.2",
+    "pyjwt>=2.13.0",
     "pymongo>=4.17.0",
     "python-dotenv>=1.2.2",
+    "python-multipart>=0.0.32",
 ]

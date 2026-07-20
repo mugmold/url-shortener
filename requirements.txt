@@ -1,6 +1,7 @@
 annotated-doc==0.0.4
 annotated-types==0.7.0
 anyio==4.14.2
+bcrypt==5.0.0
 beanie==2.1.0
 certifi==2026.6.17
 click==8.4.2
@@ -22,11 +23,13 @@ lazy-model==0.4.0
 markdown-it-py==4.2.0
 markupsafe==3.0.3
 mdurl==0.1.2
+passlib==1.7.4
 pydantic==2.13.4
 pydantic-core==2.46.4
 pydantic-extra-types==2.11.1
 pydantic-settings==2.14.2
 pygments==2.20.0
+pyjwt==2.13.0
 pymongo==4.17.0
 python-dotenv==1.2.2
 python-multipart==0.0.32

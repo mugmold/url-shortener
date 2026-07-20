@@ -4,18 +4,14 @@ from app.models.user import User
 from contextlib import asynccontextmanager
 from pymongo import AsyncMongoClient
 from beanie import init_beanie
-from dotenv import load_dotenv
-import os
-
-load_dotenv()
+from app.core.config import settings
+from app.api.routers import auth, urls
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    MONGO_URL = os.getenv("MONGO_URL", "mongodb://localhost:27017")
-
-    client = AsyncMongoClient(MONGO_URL)
-    db = client.my_database
+    client = AsyncMongoClient(settings.MONGO_URL)
+    db = client[settings.MONGO_DB_NAME]
 
     await init_beanie(database=db, document_models=[User, URL])
 
@@ -27,6 +23,9 @@ async def lifespan(app: FastAPI):
     print("database connection closed!")
 
 app = FastAPI(lifespan=lifespan)
+
+app.include_router(auth.router)
+app.include_router(urls.router)
 
 
 @app.get('/')
