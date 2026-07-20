@@ -5,7 +5,7 @@ from contextlib import asynccontextmanager
 from pymongo import AsyncMongoClient
 from beanie import init_beanie
 from app.core.config import settings
-from app.api.routers import auth, urls
+from app.api.routers import auth, urls, users
 
 
 @asynccontextmanager
@@ -26,6 +26,7 @@ app = FastAPI(lifespan=lifespan)
 
 app.include_router(auth.router)
 app.include_router(urls.router)
+app.include_router(users.router)
 
 
 @app.get('/')
