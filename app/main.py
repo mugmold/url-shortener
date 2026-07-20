@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 from app.models.url import URL
 from app.models.user import User
+from app.models.counter import Counter
 from contextlib import asynccontextmanager
 from pymongo import AsyncMongoClient
 from beanie import init_beanie
@@ -13,7 +14,7 @@ async def lifespan(app: FastAPI):
     client = AsyncMongoClient(settings.MONGO_URL)
     db = client[settings.MONGO_DB_NAME]
 
-    await init_beanie(database=db, document_models=[User, URL])
+    await init_beanie(database=db, document_models=[User, URL, Counter])
 
     print("database connected!")
     yield

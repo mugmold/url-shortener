@@ -5,7 +5,7 @@ from datetime import datetime
 
 class URLCreateRequest(BaseModel):
     original_url: HttpUrl
-    custom_alias: Optional[str] = Field(None, max_length=20)
+    custom_alias: Optional[str] = Field(None, min_length=5, max_length=20)
 
 
 class URLCreateResponse(BaseModel):
@@ -15,7 +15,7 @@ class URLCreateResponse(BaseModel):
 
 class URLUpdateRequest(BaseModel):
     new_url: Optional[HttpUrl] = None
-    new_custom_alias: Optional[str] = Field(None, max_length=20)
+    new_custom_alias: Optional[str] = Field(None, min_length=5, max_length=20)
 
     @model_validator(mode="after")
     def at_least_one_field(self):
