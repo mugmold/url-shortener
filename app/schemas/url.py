@@ -1,5 +1,5 @@
 from pydantic import BaseModel, HttpUrl, Field, model_validator
-from typing import Optional
+from typing import Optional, List
 from datetime import datetime
 
 
@@ -39,3 +39,10 @@ class URLListResponse(BaseModel):
     original_url: HttpUrl
     clicks_count: int
     created_at: datetime
+
+
+class PaginatedURLResponse(BaseModel):
+    items: List[URLListResponse]
+    total: int
+    skip: int
+    limit: int
