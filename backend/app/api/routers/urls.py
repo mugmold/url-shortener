@@ -95,6 +95,7 @@ async def update_url(
     await url_doc.save()
 
     base_url = str(request.base_url).rstrip("/")
+
     return URLUpdateResponse(
         new_shortened_url=f"{base_url}/{final_short_code}"
     )

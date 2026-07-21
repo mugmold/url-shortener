@@ -69,9 +69,9 @@ async def get_my_urls(
     # fetch the specific chunk of data
     urls = await URL.find({"owner.$id": current_user.id}).skip(skip).limit(limit).to_list()
 
-    return PaginatedURLResponse(
-        items=urls,
-        total=total,
-        skip=skip,
-        limit=limit
-    )
+    return {
+        "items": urls,
+        "total": total,
+        "skip": skip,
+        "limit": limit
+    }
