@@ -58,9 +58,9 @@ async def register(request: Request, user_in: UserCreate):
     return new_user
 
 
-@router.post("/login", response_model=Token)
+@router.post("/login", response_model=Token, status_code=status.HTTP_200_OK)
 @limiter.limit("10/minute")
-async def login(request: Request, form_data: OAuth2PasswordRequestForm = Depends(), status_code=status.HTTP_200_OK):
+async def login(request: Request, form_data: OAuth2PasswordRequestForm = Depends()):
     user = await User.find_one(
         {
             "$or": [
@@ -91,7 +91,7 @@ async def login(request: Request, form_data: OAuth2PasswordRequestForm = Depends
     }
 
 
-@router.post("/refresh", response_model=Token)
+@router.post("/refresh", response_model=Token, status_code=status.HTTP_200_OK)
 @limiter.limit("10/minute")
 async def refresh_token(request: Request, body: RefreshTokenRequest):
     credentials_exception = HTTPException(
