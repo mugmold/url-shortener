@@ -1,10 +1,12 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Request
 from fastapi.security import OAuth2PasswordRequestForm
 from pydantic import BaseModel
 
 from app.models.user import User
 from app.schemas.user import UserCreate, UserCreateResponse
 from app.core.security import get_password_hash, verify_password, create_access_token
+
+from app.core.limiter import limiter
 
 router = APIRouter(prefix="/auth", tags=["Auth"])
 
@@ -15,7 +17,8 @@ class Token(BaseModel):
 
 
 @router.post("/register", response_model=UserCreateResponse, status_code=status.HTTP_201_CREATED)
-async def register(user_in: UserCreate):
+@limiter.limit("10/minute")
+async def register(request: Request, user_in: UserCreate):
     existing_user = await User.find_one(
         {
             "$or": [
@@ -49,7 +52,8 @@ async def register(user_in: UserCreate):
 
 
 @router.post("/login", response_model=Token)
-async def login(form_data: OAuth2PasswordRequestForm = Depends(), status_code=status.HTTP_200_OK):
+@limiter.limit("10/minute")
+async def login(request: Request, form_data: OAuth2PasswordRequestForm = Depends(), status_code=status.HTTP_200_OK):
     user = await User.find_one(
         {
             "$or": [

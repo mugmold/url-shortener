@@ -11,12 +11,15 @@ from app.core.config import settings
 from fastapi.responses import RedirectResponse
 from datetime import datetime, timezone
 
+from app.core.limiter import limiter
+
 router = APIRouter(tags=["URLs"])
 
 hashids = Hashids(salt=settings.SECRET_KEY, min_length=5)
 
 
 @router.post("/urls", response_model=URLCreateResponse, status_code=status.HTTP_201_CREATED)
+@limiter.limit("20/minute")
 async def create_url(
     url_in: URLCreateRequest,
     request: Request,
@@ -52,6 +55,7 @@ async def create_url(
 
 
 @router.patch("/urls/{short_code}", response_model=URLUpdateResponse, status_code=status.HTTP_200_OK)
+@limiter.limit("20/minute")
 async def update_url(
     short_code: str,
     update_data: URLUpdateRequest,
@@ -97,7 +101,9 @@ async def update_url(
 
 
 @router.delete("/urls/{short_code}", status_code=status.HTTP_200_OK)
+@limiter.limit("20/minute")
 async def delete_url(
+    request: Request,
     short_code: str,
     current_user: User = Depends(get_current_user)
 ):
@@ -115,7 +121,8 @@ async def delete_url(
 
 
 @router.get("/{short_code}")
-async def redirect_to_original(short_code: str):
+@limiter.limit("500/minute")
+async def redirect_to_original(request: Request, short_code: str):
     url_doc = await URL.find_one({"short_code": short_code})
 
     if not url_doc:

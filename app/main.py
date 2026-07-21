@@ -9,6 +9,10 @@ from app.core.config import settings
 from app.api.routers import auth, urls, users
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.core.limiter import limiter
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -26,6 +30,9 @@ async def lifespan(app: FastAPI):
     print("database connection closed!")
 
 app = FastAPI(lifespan=lifespan)
+
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 app.add_middleware(
     CORSMiddleware,

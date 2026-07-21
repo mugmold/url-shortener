@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Request
 from app.models.user import User
 from app.schemas.user import UserUpdate, UserResponse
 from app.api.dependencies import get_current_user
@@ -7,11 +7,14 @@ from typing import List
 from app.models.url import URL
 from app.schemas.url import URLListResponse
 
+from app.core.limiter import limiter
+
 router = APIRouter(prefix="/users", tags=["Users"])
 
 
 @router.get("/me", response_model=UserResponse, status_code=status.HTTP_200_OK)
-async def read_users_me(current_user: User = Depends(get_current_user)):
+@limiter.limit("20/minute")
+async def read_users_me(request: Request, current_user: User = Depends(get_current_user)):
     """
     Get current logged in user profile
     """
@@ -19,7 +22,9 @@ async def read_users_me(current_user: User = Depends(get_current_user)):
 
 
 @router.patch("/me", response_model=UserResponse, status_code=status.HTTP_200_OK)
+@limiter.limit("5/minute")
 async def update_profile(
+    request: Request,
     user_update: UserUpdate,
     current_user: User = Depends(get_current_user)
 ):
@@ -50,6 +55,7 @@ async def update_profile(
 
 
 @router.get("/me/urls", response_model=List[URLListResponse], status_code=status.HTTP_200_OK)
-async def get_my_urls(current_user: User = Depends(get_current_user)):
+@limiter.limit("20/minute")
+async def get_my_urls(request: Request, current_user: User = Depends(get_current_user)):
     urls = await URL.find({"owner.$id": current_user.id}).to_list()
     return urls
