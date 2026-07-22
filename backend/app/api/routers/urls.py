@@ -35,8 +35,20 @@ async def create_url(
         short_code = url_in.custom_alias
 
     else:
-        seq_id = await Counter.get_next_sequence("url_counter")
-        short_code = hashids.encode(seq_id)
+        # try up to 10 times to find an unused hash
+        max_retries = 10
+        for _ in range(max_retries):
+            seq_id = await Counter.get_next_sequence("url_counter")
+            short_code = hashids.encode(seq_id)
+
+            existing_url = await URL.find_one({"short_code": short_code})
+            if not existing_url:
+                break  # found a free one
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="System collision error. Please try again."
+            )
 
     new_url = URL(
         short_code=short_code,

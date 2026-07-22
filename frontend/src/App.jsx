@@ -1,15 +1,51 @@
+import { Routes, Route } from 'react-router-dom';
+import Navbar from './components/Navbar';
+import ProtectedRoute from './components/ProtectedRoute';
+import Home from './pages/Home';
+import Login from './pages/Login';
+import Register from './pages/Register';
+import Dashboard from './pages/Dashboard';
+import Settings from './pages/Settings';
+import TooManyRequests from './pages/TooManyRequests';
+
 function App() {
   return (
-    <div className="min-h-screen bg-base-200 flex flex-col items-center justify-center p-4">
-      <div className="card w-96 bg-base-100 shadow-xl p-6">
-        <h2 className="text-2xl font-bold mb-4 text-primary">URL Shortener</h2>
-        <p className="text-sm text-base-content/70 mb-6">
-          Hello world!
-        </p>
-        <button className="btn btn-primary">Test Button</button>
-      </div>
-    </div>
-  )
+    <Routes>
+      <Route path="/too-many-requests" element={<TooManyRequests />} />
+
+      <Route
+        path="/*"
+        element={
+          <div className="min-h-screen flex flex-col">
+            <Navbar />
+            <main className="flex-1">
+              <Routes>
+                <Route path="/" element={<Home />} />
+                <Route path="/login" element={<Login />} />
+                <Route path="/register" element={<Register />} />
+                <Route
+                  path="/dashboard"
+                  element={
+                    <ProtectedRoute>
+                      <Dashboard />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/settings"
+                  element={
+                    <ProtectedRoute>
+                      <Settings />
+                    </ProtectedRoute>
+                  }
+                />
+              </Routes>
+            </main>
+          </div>
+        }
+      />
+    </Routes>
+  );
 }
 
-export default App
+export default App;

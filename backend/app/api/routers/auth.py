@@ -26,6 +26,12 @@ class RefreshTokenRequest(BaseModel):
 @router.post("/register", response_model=UserCreateResponse, status_code=status.HTTP_201_CREATED)
 @limiter.limit("10/minute")
 async def register(request: Request, user_in: UserCreate):
+    if user_in.password != user_in.confirm_password:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Passwords do not match"
+        )
+
     existing_user = await User.find_one(
         {
             "$or": [
@@ -40,10 +46,16 @@ async def register(request: Request, user_in: UserCreate):
     )
 
     if existing_user:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Username or email already registered"
-        )
+        if existing_user.username == user_in.username:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Username already registered"
+            )
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Email already registered"
+            )
 
     hashed_password = get_password_hash(user_in.password)
 

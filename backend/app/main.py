@@ -1,16 +1,18 @@
-from fastapi import FastAPI
-from app.models.url import URL
-from app.models.user import User
-from app.models.counter import Counter
+from fastapi import FastAPI, status, Request
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse
+from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 from pymongo import AsyncMongoClient
 from beanie import init_beanie
+
+from app.models.url import URL
+from app.models.user import User
+from app.models.counter import Counter
 from app.core.config import settings
 from app.api.routers import auth, urls, users
-from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.limiter import limiter
-from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 
 
@@ -32,7 +34,6 @@ async def lifespan(app: FastAPI):
 app = FastAPI(lifespan=lifespan)
 
 app.state.limiter = limiter
-app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 app.add_middleware(
     CORSMiddleware,
@@ -41,6 +42,54 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.exception_handler(RateLimitExceeded)
+async def rate_limit_handler(request: Request, exc: RateLimitExceeded):
+    return JSONResponse(
+        status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+        content={"detail": "Too many requests. Please try again later."}
+    )
+
+
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    # grab the very first error from the Pydantic array
+    error = exc.errors()[0]
+
+    # "loc" tells us which field failed (e.g., ["body", "custom_alias"])
+    field = str(error.get("loc", ["unknown"])[-1])
+    error_type = error.get("type", "")
+
+    if field in ["custom_alias", "new_custom_alias"]:
+        if "too_short" in error_type:
+            detail = "Your custom alias must be at least 5 characters long."
+        elif "too_long" in error_type:
+            detail = "Your custom alias cannot exceed 20 characters."
+        else:
+            detail = "Custom alias can only contain letters, numbers, and hyphens."
+
+    elif field == "username":
+        if "too_short" in error_type:
+            detail = "Your username must be at least 3 characters long."
+        elif "too_long" in error_type:
+            detail = "Your username cannot exceed 20 characters."
+        else:
+            detail = "Invalid username format."
+
+    elif field in ["original_url", "new_url"] and "url" in error_type:
+        detail = "Please enter a valid URL (e.g., https://example.com)."
+
+    elif field == "password" and "too_short" in error_type:
+        detail = "Your password must be at least 8 characters long."
+
+    else:
+        detail = error.get("msg", "Invalid input.")
+
+    return JSONResponse(
+        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+        content={"detail": detail}
+    )
 
 app.include_router(auth.router)
 app.include_router(users.router)

@@ -46,6 +46,11 @@ async def update_profile(
         current_user.email = user_update.email
 
     if user_update.password:
+        if user_update.password != user_update.confirm_password:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="New passwords do not match"
+            )
         current_user.password = get_password_hash(user_update.password)
 
     await current_user.save()
