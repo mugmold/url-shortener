@@ -24,10 +24,25 @@ const Dashboard = () => {
 
     const [urlToDelete, setUrlToDelete] = useState(null);
 
+    const getUtcString = (dateString) => {
+        if (!dateString) return null;
+        return dateString.endsWith('Z') || dateString.includes('+')
+            ? dateString
+            : `${dateString}Z`;
+    };
+
     const formatForInput = (isoString) => {
         if (!isoString) return '';
-        const date = new Date(isoString);
-        return new Date(date.getTime() - date.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+
+        const d = new Date(getUtcString(isoString));
+
+        const year = d.getFullYear();
+        const month = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        const hours = String(d.getHours()).padStart(2, '0');
+        const minutes = String(d.getMinutes()).padStart(2, '0');
+
+        return `${year}-${month}-${day}T${hours}:${minutes}`;
     };
 
     const fetchUrls = async () => {
@@ -97,8 +112,12 @@ const Dashboard = () => {
             if (editUrl !== urlToEdit.original_url) updateData.new_url = editUrl;
             if (editAlias !== urlToEdit.short_code) updateData.new_custom_alias = editAlias;
 
+            const originalExpIso = urlToEdit.expired_at ? new Date(getUtcString(urlToEdit.expired_at)).toISOString() : null;
             const parsedEditExp = editExpiration ? new Date(editExpiration).toISOString() : null;
-            if (parsedEditExp !== urlToEdit.expired_at) updateData.expired_at = parsedEditExp;
+
+            if (parsedEditExp !== originalExpIso) {
+                updateData.expired_at = parsedEditExp;
+            }
 
             if (Object.keys(updateData).length > 0) {
                 await apiClient.patch(`/urls/${urlToEdit.short_code}`, updateData);
@@ -174,62 +193,68 @@ const Dashboard = () => {
                                         </td>
                                     </tr>
                                 ) : (
-                                    urls.map((url) => (
-                                        <tr key={url.id}>
-                                            <td className="max-w-xs truncate" title={url.original_url}>
-                                                {url.original_url}
-                                            </td>
-                                            <td className="font-mono text-primary">
-                                                <div className="flex items-center gap-2">
-                                                    <a href={`/${url.short_code}`} target="_blank" rel="noopener noreferrer" className="hover:underline flex items-center gap-1">
-                                                        /{url.short_code}
-                                                        <ExternalLink className="w-3 h-3" />
-                                                    </a>
-                                                </div>
-                                            </td>
-                                            <td>
-                                                <div className="badge badge-neutral">{url.clicks_count}</div>
-                                            </td>
-                                            <td className="text-sm text-base-content/70">
-                                                {new Date(url.created_at).toLocaleDateString()}
-                                            </td>
-                                            <td className="text-sm">
-                                                {url.expired_at ? (
-                                                    <div className="flex items-center gap-1 text-warning">
-                                                        <Calendar className="w-3 h-3" />
-                                                        {new Date(url.expired_at).toLocaleDateString()}
+                                    urls.map((url) => {
+                                        const hasExpiration = !!url.expired_at;
+                                        const isExpired = hasExpiration && new Date() > new Date(getUtcString(url.expired_at));
+                                        const expireColor = isExpired ? "text-error" : "text-warning";
+
+                                        return (
+                                            <tr key={url.short_code}>
+                                                <td className="max-w-xs truncate" title={url.original_url}>
+                                                    {url.original_url}
+                                                </td>
+                                                <td className="font-mono text-primary">
+                                                    <div className="flex items-center gap-2">
+                                                        <a href={`/${url.short_code}`} target="_blank" rel="noopener noreferrer" className="hover:underline flex items-center gap-1">
+                                                            /{url.short_code}
+                                                            <ExternalLink className="w-3 h-3" />
+                                                        </a>
                                                     </div>
-                                                ) : (
-                                                    <span className="text-base-content/50">Never</span>
-                                                )}
-                                            </td>
-                                            <td>
-                                                <div className="flex justify-end gap-1">
-                                                    <button
-                                                        className="btn btn-square btn-sm btn-ghost"
-                                                        onClick={() => handleCopy(`${window.location.origin}/${url.short_code}`)}
-                                                        title="Copy Link"
-                                                    >
-                                                        <Copy className="w-4 h-4" />
-                                                    </button>
-                                                    <button
-                                                        className="btn btn-square btn-sm btn-ghost text-info"
-                                                        onClick={() => handleEditClick(url)}
-                                                        title="Edit Link"
-                                                    >
-                                                        <Edit className="w-4 h-4" />
-                                                    </button>
-                                                    <button
-                                                        className="btn btn-square btn-sm btn-ghost text-error"
-                                                        onClick={() => handleDeleteClick(url)}
-                                                        title="Delete Link"
-                                                    >
-                                                        <Trash2 className="w-4 h-4" />
-                                                    </button>
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    ))
+                                                </td>
+                                                <td>
+                                                    <div className="badge badge-neutral">{url.clicks_count}</div>
+                                                </td>
+                                                <td className="text-sm text-base-content/70">
+                                                    {new Date(getUtcString(url.created_at)).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}
+                                                </td>
+                                                <td className="text-sm">
+                                                    {hasExpiration ? (
+                                                        <div className={`flex items-center gap-1 ${expireColor}`}>
+                                                            <Calendar className="w-3 h-3" />
+                                                            {new Date(getUtcString(url.expired_at)).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}
+                                                        </div>
+                                                    ) : (
+                                                        <span className="text-base-content/50">Never</span>
+                                                    )}
+                                                </td>
+                                                <td>
+                                                    <div className="flex justify-end gap-1">
+                                                        <button
+                                                            className="btn btn-square btn-sm btn-ghost"
+                                                            onClick={() => handleCopy(`${window.location.origin}/${url.short_code}`)}
+                                                            title="Copy Link"
+                                                        >
+                                                            <Copy className="w-4 h-4" />
+                                                        </button>
+                                                        <button
+                                                            className="btn btn-square btn-sm btn-ghost text-info"
+                                                            onClick={() => handleEditClick(url)}
+                                                            title="Edit Link"
+                                                        >
+                                                            <Edit className="w-4 h-4" />
+                                                        </button>
+                                                        <button
+                                                            className="btn btn-square btn-sm btn-ghost text-error"
+                                                            onClick={() => handleDeleteClick(url)}
+                                                            title="Delete Link"
+                                                        >
+                                                            <Trash2 className="w-4 h-4" />
+                                                        </button>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        );
+                                    })
                                 )}
                             </tbody>
                         </table>
