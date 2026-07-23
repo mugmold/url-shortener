@@ -139,15 +139,15 @@ async def redirect_to_original(request: Request, short_code: str):
     url_doc = await URL.find_one({"short_code": short_code})
 
     if not url_doc:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="URL not found"
+        return RedirectResponse(
+            url="/not-found",
+            status_code=status.HTTP_302_FOUND
         )
 
     if url_doc.expired_at and url_doc.expired_at < datetime.now(timezone.utc):
-        raise HTTPException(
-            status_code=status.HTTP_410_GONE,
-            detail="This link has expired"
+        return RedirectResponse(
+            url="/not-found",
+            status_code=status.HTTP_302_FOUND
         )
 
     await url_doc.update({"$inc": {"clicks_count": 1}})

@@ -7,6 +7,8 @@ import Register from './pages/Register';
 import Dashboard from './pages/Dashboard';
 import Settings from './pages/Settings';
 import TooManyRequests from './pages/TooManyRequests';
+import NotFound from './pages/NotFound';
+import RedirectHandler from './pages/RedirectHandler';
 
 function App() {
   return (
@@ -39,6 +41,12 @@ function App() {
                     </ProtectedRoute>
                   }
                 />
+
+                <Route path="/not-found" element={<NotFound />} />
+
+                <Route path="/:shortCode" element={<RedirectHandler />} />
+
+                <Route path="*" element={<NotFound />} />
               </Routes>
             </main>
           </div>

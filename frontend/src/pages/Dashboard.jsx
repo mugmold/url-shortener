@@ -168,7 +168,7 @@ const Dashboard = () => {
                                             </td>
                                             <td className="font-mono text-primary">
                                                 <div className="flex items-center gap-2">
-                                                    <a href={`${API_BASE_URL}/${url.short_code}`} target="_blank" rel="noopener noreferrer" className="hover:underline flex items-center gap-1">
+                                                    <a href={`/${url.short_code}`} target="_blank" rel="noopener noreferrer" className="hover:underline flex items-center gap-1">
                                                         /{url.short_code}
                                                         <ExternalLink className="w-3 h-3" />
                                                     </a>
@@ -184,7 +184,7 @@ const Dashboard = () => {
                                                 <div className="flex justify-end gap-1">
                                                     <button
                                                         className="btn btn-square btn-sm btn-ghost"
-                                                        onClick={() => handleCopy(`${API_BASE_URL}/${url.short_code}`)}
+                                                        onClick={() => handleCopy(`${window.location.origin}/${url.short_code}`)}
                                                         title="Copy Link"
                                                     >
                                                         <Copy className="w-4 h-4" />

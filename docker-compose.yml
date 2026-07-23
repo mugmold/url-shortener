@@ -1,0 +1,44 @@
+services:
+  mongodb:
+    image: mongo:latest
+    ports:
+      - "27017:27017"
+    restart: unless-stopped
+    volumes:
+      - mongo_local_data:/data/db
+
+  gateway:
+    build:
+      context: ./nginx
+    ports:
+      - "80:80"
+    environment:
+      - DOMAIN_NAME=${DOMAIN_NAME:-_}
+    restart: unless-stopped
+    depends_on:
+      - frontend
+      - backend
+
+  frontend:
+    build:
+      context: ./frontend
+    expose:
+      - "3000"
+    restart: unless-stopped
+
+  backend:
+    build:
+      context: ./backend
+    expose:
+      - "8000"
+    environment:
+      - MONGO_URL=${MONGO_URL}
+      - MONGO_DB_NAME=${MONGO_DB_NAME}
+      - SECRET_KEY=${SECRET_KEY}
+      - CORS_ORIGINS=${CORS_ORIGINS}
+    restart: unless-stopped
+    depends_on:
+      - mongodb
+
+volumes:
+  mongo_local_data:
