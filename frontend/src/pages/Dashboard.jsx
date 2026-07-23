@@ -245,9 +245,9 @@ const Dashboard = () => {
                                     className="input input-bordered join-item w-full"
                                     value={customAlias}
                                     onChange={(e) => setCustomAlias(e.target.value)}
-                                    pattern="[a-zA-Z0-9-]+"
+                                    pattern="[a-zA-Z0-9]+"
                                     minLength={5}
-                                    title="Letters, numbers, and hyphens (min 5 chars)"
+                                    title="Letters and numbers only (min 5 chars)"
                                 />
                             </div>
                         </div>
@@ -290,9 +290,9 @@ const Dashboard = () => {
                                     className="input input-bordered join-item w-full"
                                     value={editAlias}
                                     onChange={(e) => setEditAlias(e.target.value)}
-                                    pattern="[a-zA-Z0-9-]+"
+                                    pattern="[a-zA-Z0-9]+"
                                     minLength={5}
-                                    title="Letters, numbers, and hyphens (min 5 chars)"
+                                    title="Letters and numbers only (min 5 chars)"
                                     required
                                 />
                             </div>

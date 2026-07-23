@@ -74,7 +74,7 @@ const Register = () => {
                                 minLength={3}
                                 maxLength={20}
                                 pattern="^[a-zA-Z0-9_]+$"
-                                title="Only letters, numbers, and underscores are allowed."
+                                title="Only letters, numbers, and underscores are allowed"
                             />
                             <label className="label py-1">
                                 <span className="label-text-alt text-base-content/60">No spaces, dashes, or special characters</span>

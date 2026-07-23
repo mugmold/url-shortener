@@ -126,7 +126,7 @@ async def refresh_token(request: Request, body: RefreshTokenRequest):
         if token_type != "refresh":
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid token type. Please provide a valid refresh token."
+                detail="Invalid token type, please provide a valid refresh token"
             )
 
         if user_id is None:

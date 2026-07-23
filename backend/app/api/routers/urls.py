@@ -47,7 +47,7 @@ async def create_url(
         else:
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="System collision error. Please try again."
+                detail="System collision error, Please try again"
             )
 
     new_url = URL(

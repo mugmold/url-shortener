@@ -30,7 +30,7 @@ async def get_current_user(token: str = Depends(oauth2_scheme)) -> User:
         if token_type != "access":
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid token type. Please use an access token.",
+                detail="Invalid token type. Please use an access token",
                 headers={"WWW-Authenticate": "Bearer"},
             )
 

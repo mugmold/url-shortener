@@ -11,7 +11,7 @@ class UserCreate(BaseModel):
         min_length=3,
         max_length=20,
         pattern=USERNAME_PATTERN,
-        description="Only letters, numbers, and underscores are allowed."
+        description="Only letters, numbers, and underscores are allowed"
     )
     email: EmailStr
     password: str = Field(..., min_length=8)

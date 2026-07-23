@@ -48,7 +48,7 @@ app.add_middleware(
 async def rate_limit_handler(request: Request, exc: RateLimitExceeded):
     return JSONResponse(
         status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-        content={"detail": "Too many requests. Please try again later."}
+        content={"detail": "Too many requests. Please try again later"}
     )
 
 
@@ -63,28 +63,28 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
 
     if field in ["custom_alias", "new_custom_alias"]:
         if "too_short" in error_type:
-            detail = "Your custom alias must be at least 5 characters long."
+            detail = "Your custom alias must be at least 5 characters long"
         elif "too_long" in error_type:
-            detail = "Your custom alias cannot exceed 20 characters."
+            detail = "Your custom alias cannot exceed 20 characters"
         else:
-            detail = "Custom alias can only contain letters, numbers, and hyphens."
+            detail = "Custom alias can only contain letters and numbers"
 
     elif field == "username":
         if "too_short" in error_type:
-            detail = "Your username must be at least 3 characters long."
+            detail = "Your username must be at least 3 characters long"
         elif "too_long" in error_type:
-            detail = "Your username cannot exceed 20 characters."
+            detail = "Your username cannot exceed 20 characters"
         else:
-            detail = "Invalid username format."
+            detail = "Invalid username format"
 
     elif field in ["original_url", "new_url"] and "url" in error_type:
-        detail = "Please enter a valid URL (e.g., https://example.com)."
+        detail = "Please enter a valid URL (e.g., https://example.com)"
 
     elif field == "password" and "too_short" in error_type:
-        detail = "Your password must be at least 8 characters long."
+        detail = "Your password must be at least 8 characters long"
 
     else:
-        detail = error.get("msg", "Invalid input.")
+        detail = error.get("msg", "Invalid input")
 
     return JSONResponse(
         status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,

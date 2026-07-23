@@ -2,10 +2,18 @@ from pydantic import BaseModel, HttpUrl, Field, model_validator
 from typing import Optional, List
 from datetime import datetime
 
+CUSTOM_ALIAS_REGEX = r"^[a-zA-Z0-9]+$"
+
 
 class URLCreateRequest(BaseModel):
     original_url: HttpUrl
-    custom_alias: Optional[str] = Field(None, min_length=5, max_length=20)
+    custom_alias: Optional[str] = Field(
+        None,
+        min_length=5,
+        max_length=20,
+        pattern=CUSTOM_ALIAS_REGEX,
+        description="Custom alias can only contain letters and numbers"
+    )
     expired_at: Optional[datetime] = None
 
 
@@ -16,7 +24,13 @@ class URLCreateResponse(BaseModel):
 
 class URLUpdateRequest(BaseModel):
     new_url: Optional[HttpUrl] = None
-    new_custom_alias: Optional[str] = Field(None, min_length=5, max_length=20)
+    new_custom_alias: Optional[str] = Field(
+        None,
+        min_length=5,
+        max_length=20,
+        pattern=CUSTOM_ALIAS_REGEX,
+        description="Custom alias can only contain letters and numbers"
+    )
     expired_at: Optional[datetime] = None
 
     @model_validator(mode="after")
