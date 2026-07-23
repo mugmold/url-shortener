@@ -1,8 +1,6 @@
 import { useState, useEffect } from 'react';
-import { Copy, ExternalLink, Trash2, Edit, Plus, AlertCircle } from 'lucide-react';
+import { Copy, ExternalLink, Trash2, Edit, Plus, AlertCircle, Calendar } from 'lucide-react';
 import apiClient from '../api/client';
-
-const API_BASE_URL = import.meta.env.VITE_API_URL;
 
 const Dashboard = () => {
     const [urls, setUrls] = useState([]);
@@ -13,16 +11,24 @@ const Dashboard = () => {
 
     const [newUrl, setNewUrl] = useState('');
     const [customAlias, setCustomAlias] = useState('');
+    const [expirationDate, setExpirationDate] = useState('');
     const [createError, setCreateError] = useState('');
     const [isCreating, setIsCreating] = useState(false);
-
-    const [urlToDelete, setUrlToDelete] = useState(null);
 
     const [urlToEdit, setUrlToEdit] = useState(null);
     const [editUrl, setEditUrl] = useState('');
     const [editAlias, setEditAlias] = useState('');
+    const [editExpiration, setEditExpiration] = useState('');
     const [editError, setEditError] = useState('');
     const [isEditing, setIsEditing] = useState(false);
+
+    const [urlToDelete, setUrlToDelete] = useState(null);
+
+    const formatForInput = (isoString) => {
+        if (!isoString) return '';
+        const date = new Date(isoString);
+        return new Date(date.getTime() - date.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+    };
 
     const fetchUrls = async () => {
         setLoading(true);
@@ -57,11 +63,13 @@ const Dashboard = () => {
             await apiClient.post('/urls', {
                 original_url: newUrl,
                 custom_alias: customAlias || null,
+                expired_at: expirationDate ? new Date(expirationDate).toISOString() : null,
             });
 
             document.getElementById('create_modal').close();
             setNewUrl('');
             setCustomAlias('');
+            setExpirationDate('');
             fetchUrls();
         } catch (error) {
             setCreateError(error.response?.data?.detail || 'Failed to create URL.');
@@ -74,6 +82,7 @@ const Dashboard = () => {
         setUrlToEdit(url);
         setEditUrl(url.original_url);
         setEditAlias(url.short_code);
+        setEditExpiration(formatForInput(url.expired_at));
         setEditError('');
         document.getElementById('edit_modal').showModal();
     };
@@ -87,6 +96,9 @@ const Dashboard = () => {
             const updateData = {};
             if (editUrl !== urlToEdit.original_url) updateData.new_url = editUrl;
             if (editAlias !== urlToEdit.short_code) updateData.new_custom_alias = editAlias;
+
+            const parsedEditExp = editExpiration ? new Date(editExpiration).toISOString() : null;
+            if (parsedEditExp !== urlToEdit.expired_at) updateData.expired_at = parsedEditExp;
 
             if (Object.keys(updateData).length > 0) {
                 await apiClient.patch(`/urls/${urlToEdit.short_code}`, updateData);
@@ -150,13 +162,14 @@ const Dashboard = () => {
                                     <th>Shortened Link</th>
                                     <th>Clicks</th>
                                     <th>Created At</th>
+                                    <th>Expires</th>
                                     <th className="text-right">Actions</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {urls.length === 0 ? (
                                     <tr>
-                                        <td colSpan="5" className="text-center py-12 text-base-content/60">
+                                        <td colSpan="6" className="text-center py-12 text-base-content/60">
                                             No links found. Create your first one above!
                                         </td>
                                     </tr>
@@ -179,6 +192,16 @@ const Dashboard = () => {
                                             </td>
                                             <td className="text-sm text-base-content/70">
                                                 {new Date(url.created_at).toLocaleDateString()}
+                                            </td>
+                                            <td className="text-sm">
+                                                {url.expired_at ? (
+                                                    <div className="flex items-center gap-1 text-warning">
+                                                        <Calendar className="w-3 h-3" />
+                                                        {new Date(url.expired_at).toLocaleDateString()}
+                                                    </div>
+                                                ) : (
+                                                    <span className="text-base-content/50">Never</span>
+                                                )}
                                             </td>
                                             <td>
                                                 <div className="flex justify-end gap-1">
@@ -236,21 +259,35 @@ const Dashboard = () => {
                             <label className="label"><span className="label-text">Original URL *</span></label>
                             <input type="url" className="input input-bordered w-full" value={newUrl} onChange={(e) => setNewUrl(e.target.value)} required />
                         </div>
-                        <div className="form-control">
-                            <label className="label"><span className="label-text">Custom Alias (Optional)</span></label>
-                            <div className="join w-full">
-                                <span className="join-item btn btn-active no-animation cursor-default px-4">/</span>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div className="form-control">
+                                <label className="label"><span className="label-text">Custom Alias (Optional)</span></label>
+                                <div className="join w-full">
+                                    <span className="join-item btn btn-active no-animation cursor-default px-4">/</span>
+                                    <input
+                                        type="text"
+                                        className="input input-bordered join-item w-full"
+                                        value={customAlias}
+                                        onChange={(e) => setCustomAlias(e.target.value)}
+                                        pattern="[a-zA-Z0-9]+"
+                                        minLength={5}
+                                        title="Letters and numbers only (min 5 chars)"
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="form-control">
+                                <label className="label"><span className="label-text">Expiration Date (Optional)</span></label>
                                 <input
-                                    type="text"
-                                    className="input input-bordered join-item w-full"
-                                    value={customAlias}
-                                    onChange={(e) => setCustomAlias(e.target.value)}
-                                    pattern="[a-zA-Z0-9]+"
-                                    minLength={5}
-                                    title="Letters and numbers only (min 5 chars)"
+                                    type="datetime-local"
+                                    className="input input-bordered w-full"
+                                    value={expirationDate}
+                                    onChange={(e) => setExpirationDate(e.target.value)}
                                 />
                             </div>
                         </div>
+
                         <div className="modal-action mt-6">
                             <form method="dialog"><button className="btn">Cancel</button></form>
                             <button type="submit" className="btn btn-primary" disabled={isCreating}>
@@ -279,22 +316,37 @@ const Dashboard = () => {
                             <input type="url" className="input input-bordered w-full" value={editUrl} onChange={(e) => setEditUrl(e.target.value)} required />
                         </div>
 
-                        <div className="form-control">
-                            <label className="label">
-                                <span className="label-text">Custom Alias</span>
-                            </label>
-                            <div className="join w-full">
-                                <span className="join-item btn btn-active no-animation cursor-default px-4">/</span>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div className="form-control">
+                                <label className="label">
+                                    <span className="label-text">Custom Alias</span>
+                                </label>
+                                <div className="join w-full">
+                                    <span className="join-item btn btn-active no-animation cursor-default px-4">/</span>
+                                    <input
+                                        type="text"
+                                        className="input input-bordered join-item w-full"
+                                        value={editAlias}
+                                        onChange={(e) => setEditAlias(e.target.value)}
+                                        pattern="[a-zA-Z0-9]+"
+                                        minLength={5}
+                                        title="Letters and numbers only (min 5 chars)"
+                                        required
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="form-control">
+                                <label className="label"><span className="label-text">Expiration Date</span></label>
                                 <input
-                                    type="text"
-                                    className="input input-bordered join-item w-full"
-                                    value={editAlias}
-                                    onChange={(e) => setEditAlias(e.target.value)}
-                                    pattern="[a-zA-Z0-9]+"
-                                    minLength={5}
-                                    title="Letters and numbers only (min 5 chars)"
-                                    required
+                                    type="datetime-local"
+                                    className="input input-bordered w-full"
+                                    value={editExpiration}
+                                    onChange={(e) => setEditExpiration(e.target.value)}
                                 />
+                                <label className="label">
+                                    <span className="label-text-alt text-base-content/60">Leave blank to never expire</span>
+                                </label>
                             </div>
                         </div>
 
