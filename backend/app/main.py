@@ -31,7 +31,13 @@ async def lifespan(app: FastAPI):
 
     print("database connection closed!")
 
-app = FastAPI(lifespan=lifespan)
+app = FastAPI(
+    lifespan=lifespan,
+    title="URL Shortener API",
+    docs_url="/docs" if settings.DEBUG else None,
+    redoc_url="/redoc" if settings.DEBUG else None,
+    openapi_url="/openapi.json" if settings.DEBUG else None,
+)
 
 app.state.limiter = limiter
 

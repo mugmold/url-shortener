@@ -3,6 +3,8 @@ from typing import List
 
 
 class Settings(BaseSettings):
+    DEBUG: bool = False
+
     MONGO_URL: str
     MONGO_DB_NAME: str = "url_shortener_db"
 
