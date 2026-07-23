@@ -1,6 +1,7 @@
 import { Routes, Route } from 'react-router-dom';
 import Navbar from './components/Navbar';
 import ProtectedRoute from './components/ProtectedRoute';
+import GuestRoute from './components/GuestRoute';
 import Home from './pages/Home';
 import Login from './pages/Login';
 import Register from './pages/Register';
@@ -23,8 +24,24 @@ function App() {
             <main className="flex-1">
               <Routes>
                 <Route path="/" element={<Home />} />
-                <Route path="/login" element={<Login />} />
-                <Route path="/register" element={<Register />} />
+
+                <Route
+                  path="/login"
+                  element={
+                    <GuestRoute>
+                      <Login />
+                    </GuestRoute>
+                  }
+                />
+                <Route
+                  path="/register"
+                  element={
+                    <GuestRoute>
+                      <Register />
+                    </GuestRoute>
+                  }
+                />
+
                 <Route
                   path="/dashboard"
                   element={
