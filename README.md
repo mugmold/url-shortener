@@ -21,11 +21,7 @@ A simple full-stack URL shortener web application built with FastAPI, MongoDB, a
 
 ## Environment Variables
 
-Copy `.env.example` to `.env` in the root folder before starting the project:
-
-```bash
-cp .env.example .env
-```
+You must create a `.env` file in the root folder before starting the project.
 
 | Variable | Required | Description | Default |
 |---|---|---|---|
@@ -47,18 +43,24 @@ cp .env.example .env
 
 ### Running the App
 
-1. Clone the repository:
+1. **Clone the repository:**
    ```bash
    git clone https://github.com/mugmold/url-shortener.git
    cd url-shortener
    ```
 
-2. Create your `.env` file:
-   ```bash
-   cp .env.example .env
-   ```
+2. **Create your `.env` file:**
+   * **Linux / macOS:**
+     ```bash
+     cp .env.example .env
+     ```
+   * **Windows:**
+     ```cmd
+     copy .env.example .env
+     ```
+   *(Make sure to open `.env` in a text editor and configure your variables before starting.)*
 
-3. Build and start all services:
+3. **Build and start all services:**
    ```bash
    docker compose up --build
    ```
