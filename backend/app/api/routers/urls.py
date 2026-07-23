@@ -144,11 +144,16 @@ async def redirect_to_original(request: Request, short_code: str):
             status_code=status.HTTP_302_FOUND
         )
 
-    if url_doc.expired_at and url_doc.expired_at < datetime.now(timezone.utc):
-        return RedirectResponse(
-            url="/not-found",
-            status_code=status.HTTP_302_FOUND
-        )
+    if url_doc.expired_at:
+        expired_time = url_doc.expired_at
+        if expired_time.tzinfo is None:
+            expired_time = expired_time.replace(tzinfo=timezone.utc)
+
+        if expired_time < datetime.now(timezone.utc):
+            return RedirectResponse(
+                url="/not-found",
+                status_code=status.HTTP_302_FOUND
+            )
 
     await url_doc.update({"$inc": {"clicks_count": 1}})
 
