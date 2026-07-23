@@ -35,7 +35,7 @@ class URLUpdateRequest(BaseModel):
 
     @model_validator(mode="after")
     def at_least_one_field(self):
-        if not (self.new_url or self.new_custom_alias or self.expired_at is not None):
+        if not self.model_fields_set:
             raise ValueError("At least one field must be updated")
         return self
 
@@ -53,6 +53,7 @@ class URLListResponse(BaseModel):
     original_url: HttpUrl
     clicks_count: int
     created_at: datetime
+    expired_at: Optional[datetime] = None
 
 
 class PaginatedURLResponse(BaseModel):

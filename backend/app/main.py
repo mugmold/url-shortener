@@ -92,6 +92,9 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
     else:
         detail = error.get("msg", "Invalid input")
 
+        if detail.startswith("Value error, "):
+            detail = detail.replace("Value error, ", "")
+
     return JSONResponse(
         status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
         content={"detail": detail}
