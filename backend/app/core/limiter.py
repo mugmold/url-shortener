@@ -3,21 +3,28 @@ from slowapi.util import get_remote_address
 from fastapi import Request
 
 
-def get_identifier(request: Request) -> str:
-    # check if the user is logged in via token
-    auth_header = request.headers.get("Authorization")
-    if auth_header:
-        return auth_header
-
-    # check for reverse proxy headers
+def get_remote_ip(request: Request) -> str:
+    """
+    extracts the real client IP address behind the NGINX reverse proxy
+    used for unauthenticated/public endpoints (login, register, redirects)
+    """
     forwarded = request.headers.get("X-Forwarded-For")
     if forwarded:
-        # the first one is the real client ip
         return forwarded.split(",")[0].strip()
-
-    # fallback to the direct socket connection ip
     return get_remote_address(request)
 
 
-# initialize the limiter
-limiter = Limiter(key_func=get_identifier)
+def get_user_or_ip(request: Request) -> str:
+    """
+    keys by authorization token for authenticated users, falling back to IP
+    used for protected endpoints so users behind a corporate NAT don't share limits
+    """
+    auth_header = request.headers.get("Authorization")
+    if auth_header and auth_header.startswith("Bearer "):
+        return f"user:{auth_header}"
+
+    return f"ip:{get_remote_ip(request)}"
+
+
+# default limiter keys by authenticated user token (falling back to IP)
+limiter = Limiter(key_func=get_user_or_ip)

@@ -7,7 +7,7 @@ from app.models.user import User
 from app.schemas.user import UserCreate, UserCreateResponse
 from app.core.security import get_password_hash, verify_password, create_access_token, create_refresh_token
 from app.core.config import settings
-from app.core.limiter import limiter
+from app.core.limiter import limiter, get_remote_ip
 from beanie import PydanticObjectId
 
 router = APIRouter(prefix="/auth", tags=["Auth"])
@@ -24,7 +24,7 @@ class RefreshTokenRequest(BaseModel):
 
 
 @router.post("/register", response_model=UserCreateResponse, status_code=status.HTTP_201_CREATED)
-@limiter.limit("10/minute")
+@limiter.limit("15/minute", key_func=get_remote_ip)
 async def register(request: Request, user_in: UserCreate):
     if user_in.password != user_in.confirm_password:
         raise HTTPException(
@@ -35,12 +35,8 @@ async def register(request: Request, user_in: UserCreate):
     existing_user = await User.find_one(
         {
             "$or": [
-                {
-                    "username": user_in.username
-                },
-                {
-                    "email": user_in.email
-                }
+                {"username": user_in.username},
+                {"email": user_in.email}
             ]
         }
     )
@@ -71,19 +67,15 @@ async def register(request: Request, user_in: UserCreate):
 
 
 @router.post("/login", response_model=Token, status_code=status.HTTP_200_OK)
-@limiter.limit("10/minute")
+@limiter.limit("15/minute", key_func=get_remote_ip)
 async def login(request: Request, form_data: OAuth2PasswordRequestForm = Depends()):
     login_identifier = form_data.username.lower()
 
     user = await User.find_one(
         {
             "$or": [
-                {
-                    "username": login_identifier
-                },
-                {
-                    "email": login_identifier
-                }
+                {"username": login_identifier},
+                {"email": login_identifier}
             ]
         }
     )
@@ -106,7 +98,7 @@ async def login(request: Request, form_data: OAuth2PasswordRequestForm = Depends
 
 
 @router.post("/refresh", response_model=Token, status_code=status.HTTP_200_OK)
-@limiter.limit("10/minute")
+@limiter.limit("15/minute", key_func=get_remote_ip)
 async def refresh_token(request: Request, body: RefreshTokenRequest):
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
@@ -116,8 +108,9 @@ async def refresh_token(request: Request, body: RefreshTokenRequest):
 
     try:
         payload = jwt.decode(
-            body.refresh_token, settings.SECRET_KEY, algorithms=[
-                settings.ALGORITHM]
+            body.refresh_token,
+            settings.SECRET_KEY,
+            algorithms=[settings.ALGORITHM]
         )
         user_id: str = payload.get("sub")
         token_type: str = payload.get("type")

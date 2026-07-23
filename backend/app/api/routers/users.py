@@ -12,7 +12,7 @@ router = APIRouter(prefix="/users", tags=["Users"])
 
 
 @router.get("/me", response_model=UserResponse, status_code=status.HTTP_200_OK)
-@limiter.limit("20/minute")
+@limiter.limit("30/minute")
 async def read_users_me(request: Request, current_user: User = Depends(get_current_user)):
     """
     get current logged in user profile
@@ -21,7 +21,7 @@ async def read_users_me(request: Request, current_user: User = Depends(get_curre
 
 
 @router.patch("/me", response_model=UserResponse, status_code=status.HTTP_200_OK)
-@limiter.limit("5/minute")
+@limiter.limit("10/minute")
 async def update_profile(
     request: Request,
     user_update: UserUpdate,
@@ -59,7 +59,7 @@ async def update_profile(
 
 
 @router.get("/me/urls", response_model=PaginatedURLResponse, status_code=status.HTTP_200_OK)
-@limiter.limit("20/minute")
+@limiter.limit("30/minute")
 async def get_my_urls(
     request: Request,
     skip: int = Query(default=0, ge=0, description="how many records to skip"),
