@@ -19,6 +19,12 @@ const Register = () => {
         e.preventDefault();
         setError('');
 
+        const usernameRegex = /^[a-zA-Z0-9_]+$/;
+        if (!usernameRegex.test(username)) {
+            setError('Username can only contain letters, numbers, and underscores.');
+            return;
+        }
+
         if (password !== confirmPassword) {
             setError('Passwords do not match.');
             return;
@@ -63,11 +69,16 @@ const Register = () => {
                                 placeholder="Choose a username (3-20 chars)"
                                 className="input input-bordered w-full"
                                 value={username}
-                                onChange={(e) => setUsername(e.target.value)}
+                                onChange={(e) => setUsername(e.target.value.toLowerCase())}
                                 required
                                 minLength={3}
                                 maxLength={20}
+                                pattern="^[a-zA-Z0-9_]+$"
+                                title="Only letters, numbers, and underscores are allowed."
                             />
+                            <label className="label py-1">
+                                <span className="label-text-alt text-base-content/60">No spaces, dashes, or special characters</span>
+                            </label>
                         </div>
 
                         <div className="form-control">
@@ -79,7 +90,7 @@ const Register = () => {
                                 placeholder="Enter your email"
                                 className="input input-bordered w-full"
                                 value={email}
-                                onChange={(e) => setEmail(e.target.value)}
+                                onChange={(e) => setEmail(e.target.value.toLowerCase())}
                                 required
                             />
                         </div>

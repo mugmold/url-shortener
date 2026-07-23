@@ -73,14 +73,16 @@ async def register(request: Request, user_in: UserCreate):
 @router.post("/login", response_model=Token, status_code=status.HTTP_200_OK)
 @limiter.limit("10/minute")
 async def login(request: Request, form_data: OAuth2PasswordRequestForm = Depends()):
+    login_identifier = form_data.username.lower()
+
     user = await User.find_one(
         {
             "$or": [
                 {
-                    "username": form_data.username
+                    "username": login_identifier
                 },
                 {
-                    "email": form_data.username
+                    "email": login_identifier
                 }
             ]
         }
