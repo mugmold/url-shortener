@@ -1,16 +1,17 @@
-from beanie import Document, Indexed
+import uuid
+from sqlalchemy import Column, String, DateTime
 from datetime import datetime, timezone
-from typing import Annotated
-from pydantic import Field
+from app.core.database import Base
 
 
-class User(Document):
-    username: Annotated[str, Indexed(unique=True)]
-    email: Annotated[str, Indexed(unique=True)]
-    password: str
-    created_at: datetime = Field(
-        default_factory=lambda: datetime.now(timezone.utc)
+class User(Base):
+    __tablename__ = "users"
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    username = Column(String, unique=True, index=True, nullable=False)
+    email = Column(String, unique=True, index=True, nullable=False)
+    password = Column(String, nullable=False)
+    created_at = Column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc)
     )
-
-    class Settings:
-        name = "users"

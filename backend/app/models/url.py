@@ -1,14 +1,13 @@
-from beanie import Document, Indexed, Link
+from beanie import Document, Indexed
 from datetime import datetime, timezone
 from typing import Optional, Annotated
 from pydantic import Field
-from app.models.user import User
 
 
 class URL(Document):
     short_code: Annotated[str, Indexed(unique=True)]
     original_url: str
-    owner: Optional[Link[User]] = None
+    owner_id: Annotated[Optional[str], Indexed()] = None
     created_at: datetime = Field(
         default_factory=lambda: datetime.now(timezone.utc)
     )
@@ -17,8 +16,3 @@ class URL(Document):
 
     class Settings:
         name = 'urls'
-
-        # define additional indexes based on owner (User) id
-        indexes = [
-            'owner.$id'
-        ]

@@ -2,13 +2,16 @@ from fastapi import APIRouter, Depends, HTTPException, status, Request
 from fastapi.security import OAuth2PasswordRequestForm
 from pydantic import BaseModel
 import jwt
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.future import select
+from sqlalchemy import or_
 
 from app.models.user import User
 from app.schemas.user import UserCreate, UserCreateResponse
 from app.core.security import get_password_hash, verify_password, create_access_token, create_refresh_token
 from app.core.config import settings
 from app.core.limiter import limiter, get_remote_ip
-from beanie import PydanticObjectId
+from app.core.database import get_db
 
 router = APIRouter(prefix="/auth", tags=["Auth"])
 
@@ -25,21 +28,22 @@ class RefreshTokenRequest(BaseModel):
 
 @router.post("/register", response_model=UserCreateResponse, status_code=status.HTTP_201_CREATED)
 @limiter.limit("15/minute", key_func=get_remote_ip)
-async def register(request: Request, user_in: UserCreate):
+async def register(
+    request: Request,
+    user_in: UserCreate,
+    db: AsyncSession = Depends(get_db)
+):
     if user_in.password != user_in.confirm_password:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Passwords do not match"
         )
 
-    existing_user = await User.find_one(
-        {
-            "$or": [
-                {"username": user_in.username},
-                {"email": user_in.email}
-            ]
-        }
+    result = await db.execute(
+        select(User).where(
+            or_(User.username == user_in.username, User.email == user_in.email))
     )
+    existing_user = result.scalars().first()
 
     if existing_user:
         if existing_user.username == user_in.username:
@@ -61,24 +65,27 @@ async def register(request: Request, user_in: UserCreate):
         password=hashed_password
     )
 
-    await new_user.insert()
+    db.add(new_user)
+    await db.commit()
+    await db.refresh(new_user)
 
     return new_user
 
 
 @router.post("/login", response_model=Token, status_code=status.HTTP_200_OK)
 @limiter.limit("15/minute", key_func=get_remote_ip)
-async def login(request: Request, form_data: OAuth2PasswordRequestForm = Depends()):
+async def login(
+    request: Request,
+    form_data: OAuth2PasswordRequestForm = Depends(),
+    db: AsyncSession = Depends(get_db)
+):
     login_identifier = form_data.username.lower()
 
-    user = await User.find_one(
-        {
-            "$or": [
-                {"username": login_identifier},
-                {"email": login_identifier}
-            ]
-        }
+    result = await db.execute(
+        select(User).where(
+            or_(User.username == login_identifier, User.email == login_identifier))
     )
+    user = result.scalars().first()
 
     if not user or not verify_password(form_data.password, user.password):
         raise HTTPException(
@@ -87,19 +94,20 @@ async def login(request: Request, form_data: OAuth2PasswordRequestForm = Depends
             headers={"WWW-Authenticate": "Bearer"},
         )
 
-    access_token = create_access_token(data={"sub": str(user.id)})
-    refresh_token = create_refresh_token(data={"sub": str(user.id)})
-
     return {
-        "access_token": access_token,
-        "refresh_token": refresh_token,
+        "access_token": create_access_token(data={"sub": user.id}),
+        "refresh_token": create_refresh_token(data={"sub": user.id}),
         "token_type": "bearer"
     }
 
 
 @router.post("/refresh", response_model=Token, status_code=status.HTTP_200_OK)
 @limiter.limit("15/minute", key_func=get_remote_ip)
-async def refresh_token(request: Request, body: RefreshTokenRequest):
+async def refresh_token(
+    request: Request,
+    body: RefreshTokenRequest,
+    db: AsyncSession = Depends(get_db)
+):
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Could not validate refresh token",
@@ -112,33 +120,24 @@ async def refresh_token(request: Request, body: RefreshTokenRequest):
             settings.SECRET_KEY,
             algorithms=[settings.ALGORITHM]
         )
-        user_id: str = payload.get("sub")
-        token_type: str = payload.get("type")
+        user_id = payload.get("sub")
+        token_type = payload.get("type")
 
-        # verify it is actually a refresh token
-        if token_type != "refresh":
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid token type, please provide a valid refresh token"
-            )
-
-        if user_id is None:
+        if token_type != "refresh" or user_id is None:
             raise credentials_exception
 
     except jwt.PyJWTError:
         raise credentials_exception
 
     # verify user still exists in database
-    user = await User.get(PydanticObjectId(user_id))
+    result = await db.execute(select(User).where(User.id == user_id))
+    user = result.scalars().first()
+
     if not user:
         raise credentials_exception
 
-    # refresh both "refresh token" and "access token"
-    new_access_token = create_access_token(data={"sub": str(user.id)})
-    new_refresh_token = create_refresh_token(data={"sub": str(user.id)})
-
     return {
-        "access_token": new_access_token,
-        "refresh_token": new_refresh_token,
+        "access_token": create_access_token(data={"sub": user.id}),
+        "refresh_token": create_refresh_token(data={"sub": user.id}),
         "token_type": "bearer"
     }

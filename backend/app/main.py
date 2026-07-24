@@ -7,9 +7,9 @@ from pymongo import AsyncMongoClient
 from beanie import init_beanie
 
 from app.models.url import URL
-from app.models.user import User
 from app.models.counter import Counter
 from app.core.config import settings
+from app.core.database import engine, Base
 from app.api.routers import auth, urls, users
 
 from app.core.limiter import limiter
@@ -18,18 +18,21 @@ from slowapi.errors import RateLimitExceeded
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+    print("PostgreSQL connected!")
+
     client = AsyncMongoClient(settings.MONGO_URL)
     db = client[settings.MONGO_DB_NAME]
-
-    await init_beanie(database=db, document_models=[User, URL, Counter])
+    await init_beanie(database=db, document_models=[URL, Counter])
     await Counter.init_counter("url_counter")
+    print("MongoDB connected!")
 
-    print("database connected!")
     yield
 
     client.close()
-
-    print("database connection closed!")
+    await engine.dispose()
+    print("Database connections closed!")
 
 app = FastAPI(
     lifespan=lifespan,

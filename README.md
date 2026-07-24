@@ -2,7 +2,7 @@
 
 > **Note:** If you want to deploy a pre-built production stack using Docker Hub images, check out the [url-shortener-prod](https://github.com/mugmold/url-shortener-prod) repository.
 
-A simple full-stack URL shortener web application built with FastAPI, MongoDB, and React.
+A simple full-stack URL shortener web application built with FastAPI, PostgreSQL, MongoDB, and React.
 
 ## Features
 
@@ -13,10 +13,12 @@ A simple full-stack URL shortener web application built with FastAPI, MongoDB, a
 
 ## Tech Stack
 
-* **Backend:** Python, FastAPI, Beanie (MongoDB ODM), SlowAPI
+* **Backend:** Python, FastAPI, SQLAlchemy (PostgreSQL), Beanie (MongoDB ODM), SlowAPI
 * **Frontend:** React, Vite, Tailwind CSS, DaisyUI
 * **Gateway:** NGINX (acting as a reverse proxy)
-* **Database:** MongoDB
+* **Databases:** 
+  * **PostgreSQL:** Manages relational business data (User accounts and authentication).
+  * **MongoDB:** Manages high-volume operational data (URLs, aliases, and click counters).
 * **DevOps:** Docker and GitHub Actions
 
 ## Environment Variables
@@ -28,6 +30,10 @@ You must create a `.env` file in the root folder before starting the project.
 | `DOMAIN_NAME` | Yes | Domain name or `localhost` for testing | `localhost` |
 | `MONGO_URL` | Yes | MongoDB connection string | `mongodb://mongodb:27017` |
 | `MONGO_DB_NAME` | Yes | Mongo database name | `url_shortener_db` |
+| `POSTGRES_USER` | Yes | PostgreSQL username | `admin` |
+| `POSTGRES_PASSWORD` | Yes | PostgreSQL password | `admin_password` |
+| `POSTGRES_DB` | Yes | PostgreSQL database name | `url_shortener_users` |
+| `POSTGRES_URL` | Yes | PostgreSQL async connection string | `postgresql+asyncpg://admin:admin_password@postgres:5432/url_shortener_users` |
 | `SECRET_KEY` | Yes | Secret key for JWT hashing (`openssl rand -hex 32`) | `your_secret_key` |
 | `DEBUG` | No | Set to `True` to enable Swagger API docs | `False` |
 | `CORS_ORIGINS` | Yes | Allowed origins formatted as a JSON array | `["http://localhost"]` |
@@ -86,10 +92,12 @@ To enable automated publishing to your Docker Hub registry, add these two secret
 ```text
 [ Client ] ---> ( Port 80 ) ---> [ NGINX Gateway ]
                                          |
-                 ┌───────────────────────┴───────────────────────┐
-                 ▼                                               ▼
-     [ Frontend (Port 3000) ]                        [ Backend (Port 8000) ]
-                                                                 |
-                                                                 ▼
-                                                     [ MongoDB (Port 27017) ]
+                         ┌───────────────┴───────────────┐
+                         ▼                               ▼
+              [ Frontend (Port 3000) ]        [ Backend (Port 8000) ]
+                                                         |
+                                         ┌───────────────┴───────────────┐
+                                         ▼                               ▼
+                              [ MongoDB (Port 27017) ]        [ PostgreSQL (Port 5432) ]
+                                 (URLs & Counters)                 (User Accounts)
 ```

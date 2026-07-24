@@ -1,11 +1,14 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Request, Query
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.future import select
+
 from app.models.user import User
 from app.schemas.user import UserUpdate, UserResponse
 from app.api.dependencies import get_current_user
 from app.core.security import get_password_hash
 from app.models.url import URL
 from app.schemas.url import PaginatedURLResponse
-
+from app.core.database import get_db
 from app.core.limiter import limiter
 
 router = APIRouter(prefix="/users", tags=["Users"])
@@ -25,10 +28,12 @@ async def read_users_me(request: Request, current_user: User = Depends(get_curre
 async def update_profile(
     request: Request,
     user_update: UserUpdate,
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
 ):
     if user_update.username:
-        existing_username = await User.find_one({"username": user_update.username})
+        result = await db.execute(select(User).where(User.username == user_update.username))
+        existing_username = result.scalars().first()
         if existing_username and existing_username.id != current_user.id:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -37,7 +42,8 @@ async def update_profile(
         current_user.username = user_update.username
 
     if user_update.email:
-        existing_email = await User.find_one({"email": user_update.email})
+        result = await db.execute(select(User).where(User.email == user_update.email))
+        existing_email = result.scalars().first()
         if existing_email and existing_email.id != current_user.id:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -53,7 +59,9 @@ async def update_profile(
             )
         current_user.password = get_password_hash(user_update.password)
 
-    await current_user.save()
+    db.add(current_user)
+    await db.commit()
+    await db.refresh(current_user)
 
     return current_user
 
@@ -62,17 +70,15 @@ async def update_profile(
 @limiter.limit("30/minute")
 async def get_my_urls(
     request: Request,
-    skip: int = Query(default=0, ge=0, description="how many records to skip"),
-    limit: int = Query(
-        default=10, ge=1, le=100, description="how many records to return (max 100)"
-    ),
+    skip: int = Query(default=0, ge=0),
+    limit: int = Query(default=10, ge=1, le=100),
     current_user: User = Depends(get_current_user)
 ):
     # count total urls for the frontend to calculate total pages
-    total = await URL.find({"owner.$id": current_user.id}).count()
+    total = await URL.find({"owner_id": current_user.id}).count()
 
     # fetch the specific chunk of data
-    urls = await URL.find({"owner.$id": current_user.id}).skip(skip).limit(limit).to_list()
+    urls = await URL.find({"owner_id": current_user.id}).skip(skip).limit(limit).to_list()
 
     return {
         "items": urls,

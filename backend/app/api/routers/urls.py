@@ -50,10 +50,11 @@ async def create_url(
                 detail="System collision error, Please try again"
             )
 
+    # bridge between SQL user id and MongoDB document
     new_url = URL(
         short_code=short_code,
         original_url=str(url_in.original_url),
-        owner=current_user,
+        owner_id=current_user.id,
         expired_at=url_in.expired_at
     )
     await new_url.insert()
@@ -74,7 +75,7 @@ async def update_url(
     request: Request,
     current_user: User = Depends(get_current_user)
 ):
-    url_doc = await URL.find_one({"short_code": short_code, "owner.$id": current_user.id})
+    url_doc = await URL.find_one({"short_code": short_code, "owner_id": current_user.id})
 
     if not url_doc:
         raise HTTPException(
@@ -120,7 +121,7 @@ async def delete_url(
     short_code: str,
     current_user: User = Depends(get_current_user)
 ):
-    url_doc = await URL.find_one({"short_code": short_code, "owner.$id": current_user.id})
+    url_doc = await URL.find_one({"short_code": short_code, "owner_id": current_user.id})
 
     if not url_doc:
         raise HTTPException(
