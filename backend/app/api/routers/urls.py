@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status, Request
+from fastapi import APIRouter, Depends, HTTPException, status, Request, BackgroundTasks
 from hashids import Hashids
 
 from app.models.url import URL
@@ -12,6 +12,8 @@ from fastapi.responses import RedirectResponse
 from datetime import datetime, timezone
 
 from app.core.limiter import limiter, get_remote_ip
+
+from app.core.redis import redis_client
 
 router = APIRouter(tags=["URLs"])
 
@@ -134,9 +136,17 @@ async def delete_url(
     return {"detail": f"URL with short code '{short_code}' has been successfully deleted"}
 
 
+async def track_click_in_redis(short_code: str):
+    await redis_client.hincrby("url_clicks_buffer", short_code, 1)
+
+
 @router.get("/{short_code}")
 @limiter.limit("1000/minute", key_func=get_remote_ip)
-async def redirect_to_original(request: Request, short_code: str):
+async def redirect_to_original(
+    request: Request,
+    short_code: str,
+    background_tasks: BackgroundTasks
+):
     url_doc = await URL.find_one({"short_code": short_code})
 
     if not url_doc:
@@ -156,7 +166,7 @@ async def redirect_to_original(request: Request, short_code: str):
                 status_code=status.HTTP_302_FOUND
             )
 
-    await url_doc.update({"$inc": {"clicks_count": 1}})
+    background_tasks.add_task(track_click_in_redis, short_code)
 
     return RedirectResponse(
         url=url_doc.original_url,

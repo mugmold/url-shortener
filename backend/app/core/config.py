@@ -9,6 +9,7 @@ class Settings(BaseSettings):
     MONGO_DB_NAME: str = "url_shortener_db"
 
     POSTGRES_URL: str
+    REDIS_URL: str
 
     SECRET_KEY: str
     ALGORITHM: str = "HS256"

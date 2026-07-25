@@ -2,23 +2,23 @@
 
 > **Note:** If you want to deploy a pre-built production stack using Docker Hub images, check out the [url-shortener-prod](https://github.com/mugmold/url-shortener-prod) repository.
 
-A simple full-stack URL shortener web application built with FastAPI, PostgreSQL, MongoDB, and React.
+A simple full-stack URL shortener web application built with FastAPI, PostgreSQL, MongoDB, Redis, and React.
 
 ## Features
 
 * **Short Links & Custom Aliases:** Generate random short codes or choose your own custom aliases.
 * **Link Expiration:** Set optional expiration dates on links. Expired links will automatically redirect users to a not-found page.
 * **User Accounts:** Register, login, and manage your personal links through a dashboard.
-* **Rate Limiting:** Basic protection against spam and abuse on public and user endpoints.
 
 ## Tech Stack
 
-* **Backend:** Python, FastAPI, SQLAlchemy (PostgreSQL), Beanie (MongoDB ODM), SlowAPI
+* **Backend:** Python, FastAPI, SQLAlchemy (PostgreSQL), Beanie (MongoDB ODM), redis-py, SlowAPI
 * **Frontend:** React, Vite, Tailwind CSS, DaisyUI
 * **Gateway:** NGINX (acting as a reverse proxy)
-* **Databases:** 
+* **Databases & Caching:** 
   * **PostgreSQL:** Manages relational business data (User accounts and authentication).
-  * **MongoDB:** Manages high-volume operational data (URLs, aliases, and click counters).
+  * **MongoDB:** Manages high-volume operational data (URLs, aliases, and click data).
+  * **Redis:** High-speed in-memory cache used to asynchronously buffer link clicks.
 * **DevOps:** Docker and GitHub Actions
 
 ## Environment Variables
@@ -34,6 +34,7 @@ You must create a `.env` file in the root folder before starting the project.
 | `POSTGRES_PASSWORD` | Yes | PostgreSQL password | `admin_password` |
 | `POSTGRES_DB` | Yes | PostgreSQL database name | `url_shortener_users` |
 | `POSTGRES_URL` | Yes | PostgreSQL async connection string | `postgresql+asyncpg://admin:admin_password@postgres:5432/url_shortener_users` |
+| `REDIS_URL` | Yes | Redis connection string | `redis://redis:6379/0` |
 | `SECRET_KEY` | Yes | Secret key for JWT hashing (`openssl rand -hex 32`) | `your_secret_key` |
 | `DEBUG` | No | Set to `True` to enable Swagger API docs | `False` |
 | `CORS_ORIGINS` | Yes | Allowed origins formatted as a JSON array | `["http://localhost"]` |
@@ -96,8 +97,8 @@ To enable automated publishing to your Docker Hub registry, add these two secret
                          ▼                               ▼
               [ Frontend (Port 3000) ]        [ Backend (Port 8000) ]
                                                          |
-                                         ┌───────────────┴───────────────┐
-                                         ▼                               ▼
-                              [ MongoDB (Port 27017) ]        [ PostgreSQL (Port 5432) ]
-                                 (URLs & Counters)                 (User Accounts)
+                                 ┌───────────────────────┼───────────────────────┐
+                                 ▼                       ▼                       ▼
+                      [ MongoDB (Port 27017) ] [ PostgreSQL (Port 5432) ] [ Redis (Port 6379) ]
+                         (URLs & Counters)       (User Accounts)          (Analytics Buffer)
 ```

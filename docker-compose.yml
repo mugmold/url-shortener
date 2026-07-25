@@ -15,6 +15,12 @@ services:
     volumes:
       - mongo_local_data:/data/db
 
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    volumes:
+      - redis_local_data:/data
+
   gateway:
     build:
       context: ./nginx
@@ -40,6 +46,7 @@ services:
       - MONGO_URL=${MONGO_URL}
       - MONGO_DB_NAME=${MONGO_DB_NAME:-url_shortener_db}
       - POSTGRES_URL=${POSTGRES_URL}
+      - REDIS_URL=${REDIS_URL}
       - SECRET_KEY=${SECRET_KEY}
       - ALGORITHM=${ALGORITHM:-HS256}
       - ACCESS_TOKEN_EXPIRE_MINUTES=${ACCESS_TOKEN_EXPIRE_MINUTES:-30}
@@ -49,7 +56,9 @@ services:
     depends_on:
       - mongodb
       - postgres
+      - redis
 
 volumes:
   postgres_local_data:
   mongo_local_data:
+  redis_local_data:
