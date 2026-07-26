@@ -1,4 +1,4 @@
-from beanie import Document, Indexed, UpdateResponse
+from beanie import Document, Indexed
 from typing import Annotated
 from pydantic import Field
 
@@ -20,11 +20,3 @@ class Counter(Document):
                 await cls(name=counter_name, seq=0).insert()
             except Exception:
                 pass
-
-    @classmethod
-    async def get_next_sequence(cls, counter_name: str) -> int:
-        doc = await cls.find_one({"name": counter_name}).update(
-            {"$inc": {"seq": 1}},
-            response_type=UpdateResponse.NEW_DOCUMENT
-        )
-        return doc.seq

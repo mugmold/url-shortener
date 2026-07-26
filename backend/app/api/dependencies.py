@@ -1,3 +1,4 @@
+from pydantic import BaseModel
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 import jwt
@@ -11,10 +12,11 @@ from app.core.database import get_db
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login")
 
 
-async def get_current_user(
-    token: str = Depends(oauth2_scheme),
-    db: AsyncSession = Depends(get_db)
-) -> User:
+class TokenUser(BaseModel):
+    id: str
+
+
+async def get_current_user_id(token: str = Depends(oauth2_scheme)) -> TokenUser:
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Could not validate credentials",
@@ -28,24 +30,27 @@ async def get_current_user(
         user_id: str = payload.get("sub")
         token_type: str = payload.get("type")
 
-        if user_id is None:
+        if user_id is None or token_type != "access":
             raise credentials_exception
 
-        # prevent using a refresh token as an access token
-        if token_type != "access":
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid token type. Please use an access token",
-                headers={"WWW-Authenticate": "Bearer"},
-            )
+        return TokenUser(id=user_id)
 
     except jwt.PyJWTError:
         raise credentials_exception
 
-    result = await db.execute(select(User).where(User.id == user_id))
+
+async def get_current_user(
+    token_user: TokenUser = Depends(get_current_user_id),
+    db: AsyncSession = Depends(get_db)
+) -> User:
+    result = await db.execute(select(User).where(User.id == token_user.id))
     user = result.scalars().first()
 
     if user is None:
-        raise credentials_exception
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="User not found",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
 
     return user

@@ -1,12 +1,9 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Request, BackgroundTasks
-from hashids import Hashids
 
 from app.models.url import URL
-from app.models.counter import Counter
-from app.models.user import User
+from pymongo.errors import DuplicateKeyError
 from app.schemas.url import URLCreateRequest, URLCreateResponse, URLUpdateRequest, URLUpdateResponse
-from app.api.dependencies import get_current_user
-from app.core.config import settings
+from app.api.dependencies import get_current_user_id, TokenUser
 
 from fastapi.responses import RedirectResponse
 from datetime import datetime, timezone
@@ -17,15 +14,13 @@ from app.core.redis import redis_client
 
 router = APIRouter(tags=["URLs"])
 
-hashids = Hashids(salt=settings.SECRET_KEY, min_length=5)
-
 
 @router.post("/urls", response_model=URLCreateResponse, status_code=status.HTTP_201_CREATED)
 @limiter.limit("30/minute")
 async def create_url(
     url_in: URLCreateRequest,
     request: Request,
-    current_user: User = Depends(get_current_user)
+    current_user: TokenUser = Depends(get_current_user_id)
 ):
     if url_in.custom_alias:
         existing_url = await URL.find_one({"short_code": url_in.custom_alias})
@@ -36,30 +31,48 @@ async def create_url(
             )
         short_code = url_in.custom_alias
 
-    else:
-        # try up to 10 times to find an unused hash
-        max_retries = 10
-        for _ in range(max_retries):
-            seq_id = await Counter.get_next_sequence("url_counter")
-            short_code = hashids.encode(seq_id)
+        # bridge between SQL user id and MongoDB document
+        new_url = URL(
+            short_code=short_code,
+            original_url=str(url_in.original_url),
+            owner_id=current_user.id,
+            expired_at=url_in.expired_at
+        )
+        await new_url.insert()
 
-            existing_url = await URL.find_one({"short_code": short_code})
-            if not existing_url:
-                break  # found a free one
+        # proactively prune the KGS queue in case this alias was generated
+        await redis_client.lrem("available_short_codes", 0, short_code)
+
+    else:
+        # try up to 5 times to find an unused hash
+        max_retries = 5
+        for _ in range(max_retries):
+            # pop a pre-made key from Redis (already a string)
+            short_code = await redis_client.lpop("available_short_codes")
+
+            if not short_code:
+                raise HTTPException(
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    detail="Generation queue is empty. Please try again later."
+                )
+
+            new_url = URL(
+                short_code=short_code,
+                original_url=str(url_in.original_url),
+                owner_id=current_user.id,
+                expired_at=url_in.expired_at
+            )
+
+            try:
+                await new_url.insert()
+                break  # successfully claimed
+            except DuplicateKeyError:
+                pass   # collision detected, loop continues to try next key
         else:
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail="System collision error, Please try again"
             )
-
-    # bridge between SQL user id and MongoDB document
-    new_url = URL(
-        short_code=short_code,
-        original_url=str(url_in.original_url),
-        owner_id=current_user.id,
-        expired_at=url_in.expired_at
-    )
-    await new_url.insert()
 
     base_url = str(request.base_url).rstrip("/")
 
@@ -75,7 +88,7 @@ async def update_url(
     short_code: str,
     update_data: URLUpdateRequest,
     request: Request,
-    current_user: User = Depends(get_current_user)
+    current_user: TokenUser = Depends(get_current_user_id)
 ):
     url_doc = await URL.find_one({"short_code": short_code, "owner_id": current_user.id})
 
@@ -109,6 +122,13 @@ async def update_url(
 
     await url_doc.save()
 
+    # invalidate the old cache (if exists)
+    await redis_client.delete(f"url_cache:{short_code}")
+
+    # if they changed the custom alias, also delete the new key just to be safe
+    if final_short_code != short_code:
+        await redis_client.delete(f"url_cache:{final_short_code}")
+
     base_url = str(request.base_url).rstrip("/")
 
     return URLUpdateResponse(
@@ -121,7 +141,7 @@ async def update_url(
 async def delete_url(
     request: Request,
     short_code: str,
-    current_user: User = Depends(get_current_user)
+    current_user: TokenUser = Depends(get_current_user_id)
 ):
     url_doc = await URL.find_one({"short_code": short_code, "owner_id": current_user.id})
 
@@ -132,6 +152,9 @@ async def delete_url(
         )
 
     await url_doc.delete()
+
+    # invalidate the old cache (if exists)
+    await redis_client.delete(f"url_cache:{short_code}")
 
     return {"detail": f"URL with short code '{short_code}' has been successfully deleted"}
 
@@ -147,25 +170,60 @@ async def redirect_to_original(
     short_code: str,
     background_tasks: BackgroundTasks
 ):
+    cache_key = f"url_cache:{short_code}"
+
+    # check Redis first
+    cached_url = await redis_client.get(cache_key)
+
+    if cached_url:
+        if cached_url == "NOT_FOUND":
+            return RedirectResponse(
+                url="/not-found",
+                status_code=status.HTTP_302_FOUND
+            )
+
+        # track click and redirect instantly
+        background_tasks.add_task(track_click_in_redis, short_code)
+        return RedirectResponse(
+            url=cached_url,
+            status_code=status.HTTP_307_TEMPORARY_REDIRECT
+        )
+
+    # cache miss
     url_doc = await URL.find_one({"short_code": short_code})
 
     if not url_doc:
+        # cache the 404 for 10 minutes to prevent bot spam
+        await redis_client.setex(cache_key, 600, "NOT_FOUND")
         return RedirectResponse(
             url="/not-found",
             status_code=status.HTTP_302_FOUND
         )
+
+    ttl_seconds = 3600  # 1 hour
 
     if url_doc.expired_at:
         expired_time = url_doc.expired_at
         if expired_time.tzinfo is None:
             expired_time = expired_time.replace(tzinfo=timezone.utc)
 
-        if expired_time < datetime.now(timezone.utc):
+        now = datetime.now(timezone.utc)
+        if expired_time < now:
+            # expired, cache as NOT_FOUND and redirect
+            await redis_client.setex(cache_key, 600, "NOT_FOUND")
             return RedirectResponse(
                 url="/not-found",
                 status_code=status.HTTP_302_FOUND
             )
 
+        # if it expires in less than 1 hour, shrink the Redis timer so it drops exactly when it expires
+        remaining_seconds = int((expired_time - now).total_seconds())
+        ttl_seconds = min(ttl_seconds, remaining_seconds)
+
+    # cache the successful result
+    await redis_client.setex(cache_key, ttl_seconds, url_doc.original_url)
+
+    # track click and redirect
     background_tasks.add_task(track_click_in_redis, short_code)
 
     return RedirectResponse(

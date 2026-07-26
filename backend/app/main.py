@@ -1,4 +1,3 @@
-import asyncio
 from fastapi import FastAPI, status, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
@@ -6,7 +5,6 @@ from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 from pymongo import AsyncMongoClient
 from beanie import init_beanie
-import redis.exceptions
 
 from app.models.url import URL
 from app.models.counter import Counter
@@ -17,35 +15,6 @@ from app.api.routers import auth, urls, users
 
 from app.core.limiter import limiter
 from slowapi.errors import RateLimitExceeded
-
-
-async def sync_clicks_to_mongodb():
-    """background worker that flushes Redis clicks to MongoDB every 5 seconds."""
-    while True:
-        await asyncio.sleep(5)
-        try:
-            # atomically rename the key so incoming clicks write to a fresh buffer
-            # this prevents losing clicks that happen during the flush process
-            await redis_client.rename("url_clicks_buffer", "url_clicks_processing")
-
-            # grab all the clicks we isolated
-            buffered_clicks = await redis_client.hgetall("url_clicks_processing")
-
-            if buffered_clicks:
-                # flush them to MongoDB in the background
-                for short_code, count in buffered_clicks.items():
-                    url_doc = await URL.find_one({"short_code": short_code})
-                    if url_doc:
-                        await url_doc.update({"$inc": {"clicks_count": int(count)}})
-
-                # delete the processing buffer now that we are done
-                await redis_client.delete("url_clicks_processing")
-
-        except redis.exceptions.ResponseError:
-            # this happens if "url_clicks_buffer" doesn't exist yet (no clicks in the last 5 seconds)
-            pass
-        except Exception as e:
-            print(f"Error syncing clicks: {e}")
 
 
 @asynccontextmanager
@@ -60,13 +29,9 @@ async def lifespan(app: FastAPI):
     await Counter.init_counter("url_counter")
     print("MongoDB connected!")
 
-    # start the background sync loop
-    sync_task = asyncio.create_task(sync_clicks_to_mongodb())
-
     yield
 
     # cleanup
-    sync_task.cancel()
     await redis_client.close()
     client.close()
     await engine.dispose()
@@ -77,7 +42,7 @@ app = FastAPI(
     lifespan=lifespan,
     title="URL Shortener API",
     docs_url="/docs" if settings.DEBUG else None,
-    redoc_url="/redoc" if settings.DEBUG else None,
+    redoc_url=None,
     openapi_url="/openapi.json" if settings.DEBUG else None,
 )
 

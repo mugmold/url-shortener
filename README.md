@@ -18,7 +18,8 @@ A simple full-stack URL shortener web application built with FastAPI, PostgreSQL
 * **Databases & Caching:** 
   * **PostgreSQL:** Manages relational business data (User accounts and authentication).
   * **MongoDB:** Manages high-volume operational data (URLs, aliases, and click data).
-  * **Redis:** High-speed in-memory cache used to asynchronously buffer link clicks.
+  * **Redis:** High-speed in-memory datastore used as a Read-Through cache for instant redirects, a queue for the Key Generation Service (KGS), and an asynchronous buffer for link clicks.
+* **Background Worker:** A standalone Python process that asynchronously pre-generates mathematically guaranteed collision-free short codes (KGS) and flushes click analytics to MongoDB.
 * **DevOps:** Docker and GitHub Actions
 
 ## Environment Variables
@@ -100,5 +101,7 @@ To enable automated publishing to your Docker Hub registry, add these two secret
                                  ┌───────────────────────┼───────────────────────┐
                                  ▼                       ▼                       ▼
                       [ MongoDB (Port 27017) ] [ PostgreSQL (Port 5432) ] [ Redis (Port 6379) ]
-                         (URLs & Counters)       (User Accounts)          (Analytics Buffer)
+                         (URLs & Aliases)        (User Accounts)      (Cache, KGS & Analytics)
+                                 ▲                                               ▲
+                                 └───────────── [ Background Worker ] ───────────┘
 ```

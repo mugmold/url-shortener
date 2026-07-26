@@ -1,8 +1,13 @@
-from pydantic import BaseModel, HttpUrl, Field, model_validator
+from pydantic import BaseModel, HttpUrl, Field, model_validator, field_validator
 from typing import Optional, List
 from datetime import datetime
 
 CUSTOM_ALIAS_REGEX = r"^[a-zA-Z0-9]+$"
+
+RESTRICTED_ALIASES = {
+    "login", "register", "dashboard", "settings",
+    "api", "docs", "openapi", "auth", "users", "urls"
+}
 
 
 class URLCreateRequest(BaseModel):
@@ -15,6 +20,15 @@ class URLCreateRequest(BaseModel):
         description="Custom alias can only contain letters and numbers"
     )
     expired_at: Optional[datetime] = None
+
+    @field_validator("custom_alias")
+    @classmethod
+    def validate_custom_alias(cls, v: Optional[str]) -> Optional[str]:
+        if v and v.lower() in RESTRICTED_ALIASES:
+            raise ValueError(
+                "This alias is a reserved system word and cannot be used"
+            )
+        return v
 
 
 class URLCreateResponse(BaseModel):
@@ -32,6 +46,15 @@ class URLUpdateRequest(BaseModel):
         description="Custom alias can only contain letters and numbers"
     )
     expired_at: Optional[datetime] = None
+
+    @field_validator("new_custom_alias")
+    @classmethod
+    def validate_new_custom_alias(cls, v: Optional[str]) -> Optional[str]:
+        if v and v.lower() in RESTRICTED_ALIASES:
+            raise ValueError(
+                "This alias is a reserved system word and cannot be used"
+            )
+        return v
 
     @model_validator(mode="after")
     def at_least_one_field(self):
