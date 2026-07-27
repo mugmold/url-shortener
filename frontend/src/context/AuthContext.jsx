@@ -23,13 +23,26 @@ export const AuthProvider = ({ children }) => {
         const token = localStorage.getItem('access_token');
         if (token) {
             const decoded = decodeJwt(token);
-            if (decoded) return { id: decoded.sub, username: decoded.username, email: decoded.email };
+            if (decoded) {
+                // check if the token is expired right now
+                const currentTime = Date.now() / 1000;
+                if (decoded.exp < currentTime) {
+                    return null; // token is expired, act like we don't have a user yet
+                }
+                return { id: decoded.sub, username: decoded.username, email: decoded.email };
+            }
         }
         return null;
     });
 
     const [isAuthenticated, setIsAuthenticated] = useState(() => {
-        return !!localStorage.getItem('access_token');
+        const token = localStorage.getItem('access_token');
+        if (token) {
+            const decoded = decodeJwt(token);
+            const currentTime = Date.now() / 1000;
+            return decoded && decoded.exp > currentTime;
+        }
+        return false;
     });
 
     const loading = false;
