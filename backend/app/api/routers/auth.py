@@ -95,7 +95,11 @@ async def login(
         )
 
     return {
-        "access_token": create_access_token(data={"sub": user.id}),
+        "access_token": create_access_token(data={
+            "sub": user.id,
+            "username": user.username,
+            "email": user.email
+        }),
         "refresh_token": create_refresh_token(data={"sub": user.id}),
         "token_type": "bearer"
     }
@@ -137,7 +141,11 @@ async def refresh_token(
         raise credentials_exception
 
     return {
-        "access_token": create_access_token(data={"sub": user.id}),
+        "access_token": create_access_token(data={
+            "sub": user.id,
+            "username": user.username,
+            "email": user.email
+        }),
         "refresh_token": create_refresh_token(data={"sub": user.id}),
         "token_type": "bearer"
     }

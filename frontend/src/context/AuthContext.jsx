@@ -1,41 +1,38 @@
-import { createContext, useState, useEffect, useContext } from 'react';
+import { createContext, useState, useContext } from 'react';
 import apiClient from '../api/client';
+import axios from 'axios';
 
 const AuthContext = createContext();
 
+const decodeJwt = (token) => {
+    try {
+        const base64Url = token.split('.')[1];
+        const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+        const jsonPayload = decodeURIComponent(atob(base64).split('').map(function (c) {
+            return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+        }).join(''));
+        return JSON.parse(jsonPayload);
+    } catch (e) {
+        return null;
+    }
+};
+
 export const AuthProvider = ({ children }) => {
-    const [user, setUser] = useState(null);
-    const [isAuthenticated, setIsAuthenticated] = useState(false);
-    const [loading, setLoading] = useState(true);
-
-    // check if user is already logged in when the app loads
-    useEffect(() => {
-        if (window.location.pathname === '/too-many-requests') {
-            setLoading(false);
-            return;
-        }
-
-        const checkUser = async () => {
-            try {
-                const response = await apiClient.get('/users/me');
-                setUser(response.data);
-                setIsAuthenticated(true);
-            } catch (err) {
-                if (err.response?.status === 401) {
-                    logout();
-                }
-            } finally {
-                setLoading(false);
-            }
-        };
-
+    // instantly parse user info from the token without hitting the database
+    const [user, setUser] = useState(() => {
         const token = localStorage.getItem('access_token');
         if (token) {
-            checkUser();
-        } else {
-            setLoading(false);
+            const decoded = decodeJwt(token);
+            if (decoded) return { id: decoded.sub, username: decoded.username, email: decoded.email };
         }
-    }, []);
+        return null;
+    });
+
+    const [isAuthenticated, setIsAuthenticated] = useState(() => {
+        return !!localStorage.getItem('access_token');
+    });
+
+    const loading = false;
 
     const login = async (usernameOrEmail, password) => {
         const formData = new URLSearchParams();
@@ -50,9 +47,29 @@ export const AuthProvider = ({ children }) => {
         localStorage.setItem('access_token', access_token);
         localStorage.setItem('refresh_token', refresh_token);
 
-        const userResponse = await apiClient.get('/users/me');
-        setUser(userResponse.data);
+        const decoded = decodeJwt(access_token);
+        setUser({ id: decoded.sub, username: decoded.username, email: decoded.email });
         setIsAuthenticated(true);
+    };
+
+    const refreshUserToken = async () => {
+        const refreshToken = localStorage.getItem('refresh_token');
+        if (!refreshToken) return;
+
+        try {
+            const response = await axios.post(`${import.meta.env.VITE_API_URL}/auth/refresh`, {
+                refresh_token: refreshToken
+            });
+            const { access_token, refresh_token: new_refresh } = response.data;
+
+            localStorage.setItem('access_token', access_token);
+            localStorage.setItem('refresh_token', new_refresh);
+
+            const decoded = decodeJwt(access_token);
+            setUser({ id: decoded.sub, username: decoded.username, email: decoded.email });
+        } catch (error) {
+            logout();
+        }
     };
 
     const logout = () => {
@@ -63,7 +80,7 @@ export const AuthProvider = ({ children }) => {
     };
 
     return (
-        <AuthContext.Provider value={{ user, isAuthenticated, loading, login, logout }}>
+        <AuthContext.Provider value={{ user, isAuthenticated, loading, login, logout, refreshUserToken }}>
             {children}
         </AuthContext.Provider>
     );

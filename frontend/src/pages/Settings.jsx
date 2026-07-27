@@ -4,7 +4,7 @@ import apiClient from '../api/client';
 import { AlertCircle, CheckCircle, Eye, EyeOff } from 'lucide-react';
 
 const Settings = () => {
-    const { user } = useAuth();
+    const { user, refreshUserToken } = useAuth();
 
     const [username, setUsername] = useState(user?.username || '');
     const [email, setEmail] = useState(user?.email || '');
@@ -42,6 +42,7 @@ const Settings = () => {
 
         try {
             await apiClient.patch('/users/me', updateData);
+            await refreshUserToken();
             setStatus({ type: 'success', message: 'Profile updated successfully!' });
             setPassword('');
             setConfirmPassword('');
