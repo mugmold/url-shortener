@@ -1,4 +1,4 @@
-import { createContext, useState, useContext } from 'react';
+import { createContext, useState, useEffect, useContext } from 'react';
 import apiClient from '../api/client';
 import axios from 'axios';
 
@@ -18,7 +18,7 @@ const decodeJwt = (token) => {
 };
 
 export const AuthProvider = ({ children }) => {
-    // instantly parse user info from the token without hitting the database
+    // check access_token from localStorage
     const [user, setUser] = useState(() => {
         const token = localStorage.getItem('access_token');
         if (token) {
@@ -35,17 +35,43 @@ export const AuthProvider = ({ children }) => {
         return null;
     });
 
-    const [isAuthenticated, setIsAuthenticated] = useState(() => {
-        const token = localStorage.getItem('access_token');
-        if (token) {
-            const decoded = decodeJwt(token);
-            const currentTime = Date.now() / 1000;
-            return decoded && decoded.exp > currentTime;
-        }
-        return false;
+    const [isAuthenticated, setIsAuthenticated] = useState(() => !!user);
+
+    // only show loading if access_token is dead but refresh_token exists
+    const [loading, setLoading] = useState(() => {
+        const hasRefreshToken = !!localStorage.getItem('refresh_token');
+        return !user && hasRefreshToken;
     });
 
-    const loading = false;
+    const refreshUserToken = async () => {
+        const refreshToken = localStorage.getItem('refresh_token');
+        if (!refreshToken) return false;
+
+        try {
+            const response = await axios.post(`${import.meta.env.VITE_API_URL}/auth/refresh`, {
+                refresh_token: refreshToken
+            });
+            const { access_token, refresh_token: new_refresh } = response.data;
+
+            localStorage.setItem('access_token', access_token);
+            localStorage.setItem('refresh_token', new_refresh);
+
+            const decoded = decodeJwt(access_token);
+            setUser({ id: decoded.sub, username: decoded.username, email: decoded.email });
+            setIsAuthenticated(true);
+            return true;
+        } catch (error) {
+            logout();
+            return false;
+        }
+    };
+
+    useEffect(() => {
+        if (loading) {
+            // refresh the token, then turn off the loading spinner
+            refreshUserToken().finally(() => setLoading(false));
+        }
+    }, []);
 
     const login = async (usernameOrEmail, password) => {
         const formData = new URLSearchParams();
@@ -63,26 +89,6 @@ export const AuthProvider = ({ children }) => {
         const decoded = decodeJwt(access_token);
         setUser({ id: decoded.sub, username: decoded.username, email: decoded.email });
         setIsAuthenticated(true);
-    };
-
-    const refreshUserToken = async () => {
-        const refreshToken = localStorage.getItem('refresh_token');
-        if (!refreshToken) return;
-
-        try {
-            const response = await axios.post(`${import.meta.env.VITE_API_URL}/auth/refresh`, {
-                refresh_token: refreshToken
-            });
-            const { access_token, refresh_token: new_refresh } = response.data;
-
-            localStorage.setItem('access_token', access_token);
-            localStorage.setItem('refresh_token', new_refresh);
-
-            const decoded = decodeJwt(access_token);
-            setUser({ id: decoded.sub, username: decoded.username, email: decoded.email });
-        } catch (error) {
-            logout();
-        }
     };
 
     const logout = () => {
